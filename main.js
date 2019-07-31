@@ -94,10 +94,11 @@ var app = http.createServer(function(request,response){
         var post = qs.parse(body);
         var title = post.title;
         var description = post.description;
-        console.log(post);
+        fs.writeFile(`data/${title}`, description, 'utf8', (err) => {
+          response.writeHead(302, {Location: `/?id=${title}`});
+          response.end();
+        })
       });
-      response.writeHead(200);
-      response.end('Success');
     }
     else {
       response.writeHead(404);
