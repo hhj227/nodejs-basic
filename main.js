@@ -38,15 +38,17 @@ var app = http.createServer((request,response) => {
            throw error;
          }
          // id를 배열에 담아서 전달. 공격 의도가 있는 코드는 세탁
-         db.query(`SELECT * FROM topic WHERE id=?`, [queryData.id], (error2, topic) => {
+         db.query(`select * from topic left join author on topic.author_id=author.id where topic.id=?`, [queryData.id], (error2, topic) => {
            if(error2){
              throw error2;
            }
+          //  console.log(topic);
           var title = topic[0].title;
           var description = topic[0].description;
           var list = template.list(topics);
           var html = template.HTML(title, list,
-            `<h2>${title}</h2>${description}`,
+            `<h2>${title}</h2>${description}
+            <p>by ${topic[0].name}</p>`,
             ` <a href="/create">create</a>
               <a href="/update?id=${queryData.id}">update</a>
               <form action="delete_process" method="post">
@@ -62,8 +64,8 @@ var app = http.createServer((request,response) => {
     }
     else if(pathname==='/create'){
       db.query(`SELECT * FROM topic`, (error,topics) => {
-        console.log(topics);
-        var title = 'Create';
+        db.query(`SELECT * FROM author`, (error,authors) => {
+          var title = 'Create';
         var list = template.list(topics);
         var html = template.HTML(title, list, 
           `<form action="/create_process" method="post">
@@ -75,6 +77,9 @@ var app = http.createServer((request,response) => {
               <textarea name="description" placeholder="description"></textarea>
           </p>
           <p>
+              ${template.authorSelect(authors)}
+          </p>
+          <p>
               <input type="submit">
           </p>
           </form>`,
@@ -82,6 +87,7 @@ var app = http.createServer((request,response) => {
         );
         response.writeHead(200);
         response.end(html);
+        });
       });
     } 
     else if(pathname==='/create_process'){
@@ -96,7 +102,7 @@ var app = http.createServer((request,response) => {
         db.query(`
         INSERT INTO topic (title, description, created, author_id) 
         VALUES (?, ?, NOW(), ?)`,
-        [post.title, post.description, 1],
+        [post.title, post.description, post.author],
         function(error, result){
           if(error){
             throw error;
@@ -116,24 +122,32 @@ var app = http.createServer((request,response) => {
           if(error2){
             throw error2;
           }
-          var list = template.list(topics);
-        var html = template.HTML(topic[0].title, list, 
-          `<form action="/update_process" method="post">
-        <input type="hidden" name="id" value="${topic[0].id}">
-        <p>
-            <input type="text" name="title" placeholder="title" value="${topic[0].title}">
-        
-        </p>
-        <p>
-            <textarea name="description" placeholder="description">${topic[0].description}</textarea>
-        </p>
-        <p>
-            <input type="submit">
-        </p>
-        </form>`, 
-        `<a href="/create">create</a> <a href="/update?id=${topic[0].id}">update</a>`);
-        response.writeHead(200);
-        response.end(html);
+          db.query(`SELECT * FROM author`, (error3, authors) => {
+            if(error3){
+              throw error3;
+            }
+            var list = template.list(topics);
+            var html = template.HTML(topic[0].title, list, 
+              `<form action="/update_process" method="post">
+            <input type="hidden" name="id" value="${topic[0].id}">
+            <p>
+                <input type="text" name="title" placeholder="title" value="${topic[0].title}">
+            
+            </p>
+            <p>
+                <textarea name="description" placeholder="description">${topic[0].description}</textarea>
+            </p>
+            <p>
+                  ${template.authorSelect(authors, topic[0].author_id)}
+            </p>
+            <p>
+                <input type="submit">
+            </p>
+            </form>`, 
+            `<a href="/create">create</a> <a href="/update?id=${topic[0].id}">update</a>`);
+            response.writeHead(200);
+            response.end(html);
+          });
         });
       });
     }
@@ -146,8 +160,8 @@ var app = http.createServer((request,response) => {
         var post = qs.parse(body);
         console.log(post);
         db.query(`
-        UPDATE topic SET title = ?, description = ?, author_id = 1 WHERE id = ?`,
-        [post.title, post.description, post.id],
+        UPDATE topic SET title = ?, description = ?, author_id = ? WHERE id = ?`,
+        [post.title, post.description, post.author, post.id],
         (error, result) => {
           if(error){
             throw error;
