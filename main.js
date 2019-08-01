@@ -20,7 +20,7 @@ var app = http.createServer((request,response) => {
     var pathname = url.parse(_url, true).pathname;
     if(pathname === '/'){
       if(queryData.id === undefined){
-        db.query(`select * from topic`, (error,topics) => {
+        db.query(`SELECT * FROM topic`, (error,topics) => {
           console.log(topics);
           var title = 'Welcome';
           var description = 'Hello, Node.js';
@@ -31,7 +31,6 @@ var app = http.createServer((request,response) => {
           response.writeHead(200);
           response.end(html);
         });
-
       } else {
         /* fs.readdir('./data', (error, filelist) => {
           var filteredId = path.parse(queryData.id).base;
@@ -54,11 +53,13 @@ var app = http.createServer((request,response) => {
           });
         });
         */
-       db.query(`select * from topic`, (error,topics) => {
+       db.query(`SELECT * FROM topic`, (error,topics) => {
+         // 에러가 생기면 바로 함수 중지
          if(error){
            throw error;
          }
-         db.query(`select * from topic where id=?`, [queryData.id], (error2, topic) => {
+         // id를 배열에 담아서 전달. 공격 의도가 있는 코드는 세탁
+         db.query(`SELECT * FROM topic WHERE id=?`, [queryData.id], (error2, topic) => {
            if(error2){
              throw error2;
            }
@@ -81,6 +82,7 @@ var app = http.createServer((request,response) => {
       }
     }
     else if(pathname==='/create'){
+      /*
       fs.readdir('./data', (error, filelist) => {
         var title = 'WEB - Create';
         var list = template.list(filelist);
@@ -100,6 +102,30 @@ var app = http.createServer((request,response) => {
         response.writeHead(200);
         response.end(html);
       })
+      */
+
+      db.query(`SELECT * FROM topic`, (error,topics) => {
+        console.log(topics);
+        var title = 'Create';
+        var list = template.list(topics);
+        var html = template.HTML(title, list, 
+          `<form action="/create_process" method="post">
+          <p>
+              <input type="text" name="title" placeholder="title">
+          
+          </p>
+          <p>
+              <textarea name="description" placeholder="description"></textarea>
+          </p>
+          <p>
+              <input type="submit">
+          </p>
+          </form>`,
+        ``
+        );
+        response.writeHead(200);
+        response.end(html);
+      });
     } 
     else if(pathname==='/create_process'){
       var body = '';
@@ -108,12 +134,20 @@ var app = http.createServer((request,response) => {
       });
       request.on('end', () => {
         var post = qs.parse(body);
-        var title = post.title;
-        var description = post.description;
-        fs.writeFile(`data/${title}`, description, 'utf8', (err) => {
-          response.writeHead(302, {Location: `/?id=${title}`});
+        // query가 끝나면 콜백함수
+        // author_id 나중에 수정
+        db.query(`
+        INSERT INTO topic (title, description, created, author_id) 
+        VALUES (?, ?, NOW(), ?)`,
+        [post.title, post.description, 1],
+        function(error, result){
+          if(error){
+            throw error;
+          }
+          response.writeHead(302, {Location: `/?id=${result.insertId}`});
           response.end();
-        })
+        }
+        )
       });
     }
     else if(pathname==='/update'){
