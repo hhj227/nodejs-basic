@@ -14,13 +14,13 @@ var db = mysql.createConnection({
 });
 db.connect();
 
-var app = http.createServer(function(request,response){
+var app = http.createServer((request,response) => {
     var _url = request.url;
     var queryData = url.parse(_url, true).query;
     var pathname = url.parse(_url, true).pathname;
     if(pathname === '/'){
       if(queryData.id === undefined){
-        db.query(`select * from topic`, function(error,topics){
+        db.query(`select * from topic`, (error,topics) => {
           console.log(topics);
           var title = 'Welcome';
           var description = 'Hello, Node.js';
@@ -33,7 +33,7 @@ var app = http.createServer(function(request,response){
         });
 
       } else {
-        fs.readdir('./data', (error, filelist) => {
+        /* fs.readdir('./data', (error, filelist) => {
           var filteredId = path.parse(queryData.id).base;
           fs.readFile(`data/${filteredId}`, 'utf8', function(err, description){
             var title = queryData.id;
@@ -53,10 +53,35 @@ var app = http.createServer(function(request,response){
             response.end(html);
           });
         });
+        */
+       db.query(`select * from topic`, (error,topics) => {
+         if(error){
+           throw error;
+         }
+         db.query(`select * from topic where id=?`, [queryData.id], (error2, topic) => {
+           if(error2){
+             throw error2;
+           }
+          var title = topic[0].title;
+          var description = topic[0].description;
+          var list = template.list(topics);
+          var html = template.HTML(title, list,
+            `<h2>${title}</h2>${description}`,
+            ` <a href="/create">create</a>
+              <a href="/update?id=${queryData.id}">update</a>
+              <form action="delete_process" method="post">
+                <input type="hidden" name="id" value="${queryData.id}">
+                <input type="submit" value="delete">
+              </form>`
+          );
+          response.writeHead(200);
+        response.end(html);
+         });        
+      });
       }
     }
     else if(pathname==='/create'){
-      fs.readdir('./data', function(error, filelist){
+      fs.readdir('./data', (error, filelist) => {
         var title = 'WEB - Create';
         var list = template.list(filelist);
         var html = template.HTML(title, list, `
@@ -92,9 +117,9 @@ var app = http.createServer(function(request,response){
       });
     }
     else if(pathname==='/update'){
-      fs.readdir('./data', function(error, filelist){
+      fs.readdir('./data', (error, filelist) => {
         var filteredId = path.parse(queryData.id).base;
-        fs.readFile(`data/${filteredId}`, 'utf8', function(err, description){
+        fs.readFile(`data/${filteredId}`, 'utf8', (err, description) => {
           var title = queryData.id;
           var list = template.list(filelist);
           var html = template.HTML(title, list, 
