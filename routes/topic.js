@@ -33,7 +33,6 @@ router.get("/create", (request, response) => {
       `,
         ""
       );
-      // const html = `<head>d</head><body><h1>hello</h1></body>`;
       response.send(html);
     });
   });
@@ -58,28 +57,42 @@ router.post("/create_process", (request, response) => {
 
 router.get("/update/:pageId", (request, response) => {
   const filteredId = path.parse(request.params.pageId).base;
-  fs.readFile(`data/${filteredId}`, "utf8", (err, description) => {
-    if (err) throw err;
-    const title = request.params.pageId;
-    const list = template.list(request.list);
-    const html = template.HTML(
-      title,
-      list,
-      `
-        <form action="/topic/update_process" method="post">
-          <input type="hidden" name="id" value="${title}">
-          <p><input type="text" name="title" placeholder="title" value="${title}"></p>
-          <p>
-            <textarea name="description" placeholder="description">${description}</textarea>
-          </p>
-          <p>
-            <input type="submit">
-          </p>
-        </form>
-        `,
-      `<a href="/topic/create">create</a> <a href="/topic/update/${title}">update</a>`
-    );
-    response.send(html);
+  db.query(`SELECT * FROM topic`, (error, topics) => {
+      if(error){
+        throw error;
+      }
+      db.query(`SELECT * FROM topic WHERE id=?`, [filteredId], (error2, topic)=>{
+        if(error2){
+          throw error2;
+        }
+        db.query(`SELECT * FROM author`, (error3, authors) => {
+          if(error3){
+            throw error3;
+          }
+          console.log(topic);
+          const list = template.list(topics);
+          const html = template.HTML(topic[0].title, list,
+            `<form action="/topic/update_process" method="post">
+            <input type="hidden" name="id" value="${topic[0].id}">
+            <p>
+                <input type="text" name="title" placeholder="title" value="${topic[0].title}">
+            
+            </p>
+            <p>
+                <textarea name="description" placeholder="description">${topic[0].description}</textarea>
+            </p>
+            <p>
+                  ${template.authorSelect(authors, topic[0].author_id)}
+            </p>
+            <p>
+                <input type="submit">
+            </p>
+            </form>`, 
+            `<a href="/create">create</a> <a href="/update?id=${filteredId}">update</a>`);
+          // const html = `<head>d</head><body><h1>hello</h1></body>`;          
+            response.send(html);
+        });
+      });
   });
 });
 
@@ -88,22 +101,27 @@ router.post("/update_process", function(request, response) {
   const id = post.id;
   const title = post.title;
   const description = post.description;
-  fs.rename(`data/${id}`, `data/${title}`, function(error) {
-    if (error) throw error;
-    fs.writeFile(`data/${title}`, description, "utf8", function(err) {
-      if (err) throw err;
-      response.redirect(`/topic/${title}`);
-    });
-  });
+  db.query(`UPDATE topic SET title = ?, description = ?, author_id = ? WHERE id = ?`,
+  [post.title, post.description, post.author, post.id],
+  (error, result) => {
+    if(error){
+      throw error;
+    }
+    response.redirect(302, `/?id=${post.id}`);
+  }
+  );
 });
 
 router.post("/delete_process", function(request, response) {
   const post = request.body;
   const id = post.id;
   const filteredId = path.parse(id).base;
-  fs.unlink(`data/${filteredId}`, function(error) {
+  db.query(`DELETE FROM topic WHERE id = ?`, [id], (error, results) => {
+    if(error){
+      throw error;
+    }
     response.redirect("/");
-  });
+  })
 });
 
 router.get("/:pageId", (request, response) => {
@@ -123,9 +141,9 @@ router.get("/:pageId", (request, response) => {
           list,
           `<h2>${title}</h2>${description}
           <p>by ${topic[0].name}</p>`,
-          `<a href="/create">create</a>
-          <a href="/update?id=${filteredId}">update</a>
-          <form action="delete_process" method="post">
+          `<a href="/topic/create">create</a>
+          <a href="/topic/update/${filteredId}">update</a>
+          <form action="/topic/delete_process" method="post">
             <input type="hidden" name="id" value="${filteredId}">
             <input type="submit" value="delete">
           </form>`

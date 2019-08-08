@@ -24,4 +24,35 @@ router.get("", (request, response) => {
     });
 });
 
+router.post("/login_process", (request, response)=>{
+    // var post = request.body;
+    // console.log("enter login process");
+    // if(post.email === 'egoing777@gmail.com' && post.password === '111111') {
+    //     //   response.cookie('Set-Cookie', '1'
+    //     //   );
+    //       response.redirect(302, `/`);
+    // }
+    var body = '';
+	      request.on('data', function(data){
+	          body = body + data;
+	      });
+	      request.on('end', function(){
+	          var post = qs.parse(body);
+	          if(post.email === 'egoing777@gmail.com' && post.password === '111111') {
+	            response.writeHead(302, {
+	              'Set-Cookie':[
+	                `email=${post.email}`,
+	                `password=${post.password}`,
+	                `nickname=egoing`
+	              ],
+	              Location: `/`
+	            });
+	          }
+	          response.end();
+	      });
+});
+
+// [`email=${post.email}`,
+//           `password=${post.password}`,
+//           `nickname=egoing`]
 module.exports = router;
